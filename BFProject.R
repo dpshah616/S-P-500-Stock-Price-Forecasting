@@ -1,0 +1,112 @@
+library(fpp)
+library(fpp2)
+library(ggplot2)
+library(forecast)
+library(urca)
+
+#Visualization Graphs
+hist(GSPC$Close, 
+     main="Histogram for GSPC$Close", 
+     xlab="GSPC$Close", 
+     border="blue", 
+     col="green")
+qplot(Close, Open, data=as.data.frame(GSPC)) +  ylab("High") + xlab("Open")
+
+
+#Convert it into time series
+GSPC1<- ts(GSPC$Adj.Close, start=c(2000, 1),end=c(2018,12), freq=12)
+GSPC1
+
+#Plot the time series with ACF and PACF
+plot(GSPC1)
+ggAcf(GSPC1)
+c=acf(GSPC1,lag=1)
+c
+ggPacf(GSPC1)
+
+#To check if it stationary or not
+test_stationary=(ur.kpss(GSPC1))
+summary(test_stationary)
+#we obtain that the test statistic i.e.3.1593 is much bigger than the 1% critical value=0.739, indicating that the null hypothesis is
+#rejected.That is, the data are not stationary. 
+ndiffs(GSPC1)
+
+#Different forecastingb methods with graphs
+meanf(GSPC1,h=24)
+naive(GSPC1,h=24)
+rwf(GSPC1,h=24,drift=TRUE)
+autoplot(GSPC1) +
+  autolayer(meanf(GSPC1, h=24),
+            series="Mean", PI=FALSE) +
+  ggtitle("GSPC(monthly stock ending Dec 2018)") +
+  guides(colour=guide_legend(title="Forecast"))
+autoplot(GSPC1) +
+  autolayer(naive(GSPC1, h=24),
+            series="Naïve", PI=FALSE) +
+  ggtitle("GSPC(monthly stock ending Dec 2018)") +
+  xlab("Year") + ylab("Closing Price (US$)") +
+  guides(colour=guide_legend(title="Forecast"))
+autoplot(GSPC1) +
+  autolayer(snaive(GSPC1, h=24),
+            series="SNaïve", PI=FALSE) +
+  ggtitle("GSPC(monthly stock ending Dec 2018)") +
+  xlab("Year") + ylab("Closing Price (US$)") +
+  guides(colour=guide_legend(title="Forecast"))
+autoplot(GSPC1) +
+  autolayer(rwf(GSPC1,drift=TRUE, h=24),
+            series="Drift", PI=FALSE) +
+  ggtitle("GSPC(monthly stock ending Dec 2018)") +
+  xlab("Year") + ylab("Closing Price (US$)") +
+  guides(colour=guide_legend(title="Forecast"))
+
+#Accuracy of forecasting methods
+GSPC_train<- window(GSPC1,start=2000,end=c(2016,12))
+GSfit1 <- meanf(GSPC_train,h=24)
+GSfit2 <- rwf(GSPC_train,h=24,drift=TRUE)
+GSfit2
+GSfit3 <- naive(GSPC_train,h=24)
+GSfit3
+autoplot(GSPC_train) +
+  autolayer(GSfit1, series="Mean", PI=FALSE) +
+  autolayer(GSfit2, series="Drift", PI=FALSE) +
+  autolayer(GSfit3, series="Naïve", PI=FALSE) +
+  xlab("Year") + ylab("Adj.Close") +
+  ggtitle("Forecasts for monthly GSPC") +
+  guides(colour=guide_legend(title="Forecast"))
+GSPC_test <- window(GSPC1, start=2017,end=2018)
+accuracy(GSfit1, GSPC_test)
+accuracy(GSfit2, GSPC_test)
+accuracy(GSfit3, GSPC_test)
+
+#To find smoothing parameters for SES
+fit1=ses(GSPC1,alpha=0.9,h=24)
+plot(fit1)
+fit1$model
+fit5=ses(GSPC_train,alpha=0.9,h=24)
+accuracy(fit5,GSPC_test)
+
+#Arima Models
+Arima(GSPC1,order=c(1,0,0))
+Arima(GSPC1,order=c(0,0,1))
+Arima(GSPC1,order=c(0,1,0))
+fit2<- auto.arima(GSPC1,seasonal=FALSE)
+fit2
+
+#Forecasting the ARIMA Model
+fit3=forecast(fit2,h=24)
+fit3
+plot(fit3)
+fit6=auto.arima(GSPC_train,seasonal=FALSE)
+fit7=forecast(fit6,h=24)
+accuracy(fit7,GSPC_test)
+
+#STL Decomposition
+fit4 <- stl(GSPC1, s.window=5)
+fit4
+plot(GSPC1, col="gray",
+     main="GSPC",
+     ylab="Adj.Close", xlab="Years")
+lines(fit4$time.series[,2],col="red",ylab="Trend")
+
+
+
